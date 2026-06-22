@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
-
+from services.habit_tracker import calculate_streak
 from database import get_db
 from models import Conversation, Submission, Message
 
@@ -35,28 +34,8 @@ def get_conversation_messages(conversation_id: int, db: Session = Depends(get_db
 def get_streak(db: Session = Depends(get_db)):
     submissions = db.query(Submission).order_by(Submission.created_at.desc()).all()
 
-    if not submissions:
-        return {"current_streak": 0, "total_submissions": 0}
-
-    submission_dates = sorted(
-        {s.created_at.date() for s in submissions}, reverse=True
-    )
-
-    today = datetime.now().date()
-    streak = 0
-    expected_date = today
-
-    for date in submission_dates:
-        if date == expected_date:
-            streak += 1
-            expected_date -= timedelta(days=1)
-        elif date == expected_date + timedelta(days=1):
-            continue
-        else:
-            break
-
     return {
-        "current_streak": streak,
+        "current_streak": calculate_streak(submissions),
         "total_submissions": len(submissions)
     }
 
