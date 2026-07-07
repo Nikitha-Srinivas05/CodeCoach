@@ -1,14 +1,19 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
 import json
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
+from pydantic import BaseModel, field_validator
 
 from database import get_db
 from models import Conversation, Message, Submission
 from services.ast_analyser import analyse_python
-from services.ai_service import get_ai_feedback
+from services.ai_service import get_ai_feedback, AIServiceError
 
+logger = logging.getLogger("codecoach")
 router = APIRouter()
+
+MAX_CODE_LENGTH = 6000
 
 
 class ChatRequest(BaseModel):
@@ -16,12 +21,30 @@ class ChatRequest(BaseModel):
     content: str
     is_code: bool = False
 
+    @field_validator("content")
+    @classmethod
+    def content_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("Message content cannot be empty.")
+        if len(v) > MAX_CODE_LENGTH:
+            raise ValueError(
+                f"Submission is too long ({len(v)} chars). "
+                f"Please keep it under {MAX_CODE_LENGTH} characters."
+            )
+        return v
+
 
 @router.post("/chat")
 def chat(request: ChatRequest, db: Session = Depends(get_db)):
     # Step 1: Get or create conversation
     if request.conversation_id:
-        conversation = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
+        conversation = (
+            db.query(Conversation)
+            .filter(Conversation.id == request.conversation_id)
+            .first()
+        )
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found.")
     else:
         conversation = Conversation(title="New Chat")
         db.add(conversation)
@@ -32,32 +55,50 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
     user_message = Message(
         conversation_id=conversation.id,
         role="user",
-        content=request.content
+        content=request.content,
     )
     db.add(user_message)
     db.commit()
     db.refresh(user_message)
 
-    # Step 3: If it's code, run AST analysis and save submission
+    # Step 3: If it's code, run AST analysis and save submission.
+    # A malformed AST call shouldn't take down the whole request — fall back
+    # to an empty result and let the AI still attempt feedback on raw code.
     ast_results = {}
     if request.is_code:
-        ast_results = analyse_python(request.content)
-        submission = Submission(
-            message_id=user_message.id,
-            code=request.content,
-            ast_results=json.dumps(ast_results)
+        try:
+            ast_results = analyse_python(request.content)
+            submission = Submission(
+                message_id=user_message.id,
+                code=request.content,
+                ast_results=json.dumps(ast_results),
+            )
+            db.add(submission)
+            db.commit()
+        except Exception:
+            logger.exception("AST analysis failed for message %s", user_message.id)
+            db.rollback()
+            ast_results = {"error": "Static analysis failed for this submission."}
+
+    # Step 4: Get AI feedback. This is the most likely point of failure
+    # (network issue, Groq quota, timeout) so it gets its own explicit
+    # handling instead of falling through to the global 500 handler.
+    try:
+        ai_response = get_ai_feedback(request.content, ast_results)
+    except AIServiceError:
+        logger.exception("AI feedback failed for message %s", user_message.id)
+        ai_response = (
+            "I couldn't generate feedback right now — the AI service may be "
+            "temporarily unavailable. Please try sending your code again in "
+            "a moment."
         )
-        db.add(submission)
-        db.commit()
 
-    # Step 4: Get AI feedback
-    ai_response = get_ai_feedback(request.content, ast_results)
-
-    # Step 5: Save assistant's message
+    # Step 5: Save assistant's message (always happens, even on AI failure,
+    # so the conversation stays coherent and the user gets a visible reply).
     assistant_message = Message(
         conversation_id=conversation.id,
         role="assistant",
-        content=ai_response
+        content=ai_response,
     )
     db.add(assistant_message)
     db.commit()
@@ -65,5 +106,5 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
     return {
         "conversation_id": conversation.id,
         "response": ai_response,
-        "ast_results": ast_results
+        "ast_results": ast_results,
     }
