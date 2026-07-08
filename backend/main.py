@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from database import engine, Base
 import models
-from routers import chat, progress
+from routers import auth, chat, progress
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("codecoach")
@@ -43,6 +43,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
+app.include_router(auth.router)
 app.include_router(chat.router)
 app.include_router(progress.router)
 

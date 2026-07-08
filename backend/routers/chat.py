@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 
 from database import get_db
-from models import Conversation, Message, Submission
+from models import Conversation, Message, Submission, User
+from dependencies import get_current_user
 from services.ast_analyser import analyse_python
 from services.ai_service import get_ai_feedback, AIServiceError
 
@@ -35,18 +36,25 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
-def chat(request: ChatRequest, db: Session = Depends(get_db)):
-    # Step 1: Get or create conversation
+def chat(
+    request: ChatRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Step 1: Get or create conversation, scoped to the logged-in user
     if request.conversation_id:
         conversation = (
             db.query(Conversation)
-            .filter(Conversation.id == request.conversation_id)
+            .filter(
+                Conversation.id == request.conversation_id,
+                Conversation.user_id == current_user.id,
+            )
             .first()
         )
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found.")
     else:
-        conversation = Conversation(title="New Chat")
+        conversation = Conversation(title="New Chat", user_id=current_user.id)
         db.add(conversation)
         db.commit()
         db.refresh(conversation)
@@ -62,8 +70,6 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
     db.refresh(user_message)
 
     # Step 3: If it's code, run AST analysis and save submission.
-    # A malformed AST call shouldn't take down the whole request — fall back
-    # to an empty result and let the AI still attempt feedback on raw code.
     ast_results = {}
     if request.is_code:
         try:
@@ -80,9 +86,7 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
             db.rollback()
             ast_results = {"error": "Static analysis failed for this submission."}
 
-    # Step 4: Get AI feedback. This is the most likely point of failure
-    # (network issue, Groq quota, timeout) so it gets its own explicit
-    # handling instead of falling through to the global 500 handler.
+    # Step 4: Get AI feedback
     try:
         ai_response = get_ai_feedback(request.content, ast_results)
     except AIServiceError:
@@ -93,8 +97,7 @@ def chat(request: ChatRequest, db: Session = Depends(get_db)):
             "a moment."
         )
 
-    # Step 5: Save assistant's message (always happens, even on AI failure,
-    # so the conversation stays coherent and the user gets a visible reply).
+    # Step 5: Save assistant's message
     assistant_message = Message(
         conversation_id=conversation.id,
         role="assistant",
