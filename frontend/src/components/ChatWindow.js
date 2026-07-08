@@ -1,5 +1,63 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { sendMessage, getMessages } from '../api';
+
+// Custom renderers so markdown output matches the app's dark/glass theme
+// instead of falling back to default browser styles.
+const markdownComponents = {
+  p: ({ children }) => <p style={markdownStyles.p}>{children}</p>,
+  strong: ({ children }) => <strong style={markdownStyles.strong}>{children}</strong>,
+  em: ({ children }) => <em style={markdownStyles.em}>{children}</em>,
+  ul: ({ children }) => <ul style={markdownStyles.list}>{children}</ul>,
+  ol: ({ children }) => <ol style={markdownStyles.list}>{children}</ol>,
+  li: ({ children }) => <li style={markdownStyles.listItem}>{children}</li>,
+  code: ({ inline, children }) =>
+    inline ? (
+      <code style={markdownStyles.inlineCode}>{children}</code>
+    ) : (
+      <code style={markdownStyles.blockCode}>{children}</code>
+    ),
+  pre: ({ children }) => <pre style={markdownStyles.pre}>{children}</pre>,
+  h1: ({ children }) => <h3 style={markdownStyles.heading}>{children}</h3>,
+  h2: ({ children }) => <h3 style={markdownStyles.heading}>{children}</h3>,
+  h3: ({ children }) => <h3 style={markdownStyles.heading}>{children}</h3>,
+};
+
+const markdownStyles = {
+  p: { margin: '0 0 10px 0', lineHeight: '1.6' },
+  strong: { color: '#e2e8f0', fontWeight: '700' },
+  em: { color: '#cbd5e1' },
+  list: { margin: '0 0 10px 0', paddingLeft: '20px' },
+  listItem: { marginBottom: '4px', lineHeight: '1.6' },
+  inlineCode: {
+    fontFamily: 'JetBrains Mono, monospace',
+    fontSize: '13px',
+    background: 'rgba(99, 102, 241, 0.15)',
+    color: '#a5b4fc',
+    padding: '2px 6px',
+    borderRadius: '4px',
+  },
+  blockCode: {
+    fontFamily: 'JetBrains Mono, monospace',
+    fontSize: '13px',
+    color: '#a5b4fc',
+  },
+  pre: {
+    background: 'rgba(0,0,0,0.25)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '8px',
+    padding: '12px',
+    overflowX: 'auto',
+    margin: '8px 0',
+  },
+  heading: {
+    fontSize: '14px',
+    fontWeight: '700',
+    color: '#e2e8f0',
+    margin: '4px 0 8px 0',
+  },
+};
 
 function ChatWindow({ conversationId, onConversationCreated }) {
   const [messages, setMessages] = useState([]);
@@ -9,26 +67,26 @@ function ChatWindow({ conversationId, onConversationCreated }) {
   const [analysisSteps, setAnalysisSteps] = useState([]);
   const bottomRef = useRef(null);
 
-  useEffect(() => {
-    if (conversationId) {
-      fetchMessages();
-    } else {
-      setMessages([]);
-    }
-  }, [conversationId]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, analysisSteps]);
-
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       const res = await getMessages(conversationId);
       setMessages(res.data);
     } catch (err) {
       console.error('Failed to fetch messages', err);
     }
-  };
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (conversationId) {
+      fetchMessages();
+    } else {
+      setMessages([]);
+    }
+  }, [conversationId, fetchMessages]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, analysisSteps]);
 
   const simulateAnalysisSteps = () => {
     const steps = [
@@ -109,7 +167,11 @@ function ChatWindow({ conversationId, onConversationCreated }) {
               {msg.role === 'user' ? (
                 <pre style={styles.codeContent}>{msg.content}</pre>
               ) : (
-                <p style={styles.textContent}>{msg.content}</p>
+                <div style={styles.textContent}>
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {msg.content}
+                  </ReactMarkdown>
+                </div>
               )}
             </div>
           </div>
@@ -299,7 +361,6 @@ const styles = {
   textContent: {
     fontSize: '14px',
     color: '#cbd5e1',
-    whiteSpace: 'pre-wrap',
   },
   analysisStep: {
     fontSize: '13px',
