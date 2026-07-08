@@ -1,11 +1,17 @@
 import React, { useState } from 'react';
+import { Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import Dashboard from './components/Dashboard';
+import Login from './components/Login';
+import Signup from './components/Signup';
+import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
 
-function App() {
+function MainApp() {
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [view, setView] = useState('chat');
+  const { email, logout } = useAuth();
 
   const handleNewChat = () => {
     setActiveConversationId(null);
@@ -34,7 +40,7 @@ function App() {
             <button
               style={{
                 ...styles.tabBtn,
-                ...(view === 'chat' ? styles.activeTab : {})
+                ...(view === 'chat' ? styles.activeTab : {}),
               }}
               onClick={() => setView('chat')}
             >
@@ -43,7 +49,7 @@ function App() {
             <button
               style={{
                 ...styles.tabBtn,
-                ...(view === 'dashboard' ? styles.activeTab : {})
+                ...(view === 'dashboard' ? styles.activeTab : {}),
               }}
               onClick={() => setView('dashboard')}
             >
@@ -53,6 +59,11 @@ function App() {
           <div style={styles.topBarRight}>
             <div style={styles.statusDot} />
             <span style={styles.statusText}>API Connected</span>
+            <span style={styles.divider} />
+            <span style={styles.emailText}>{email}</span>
+            <button style={styles.logoutBtn} onClick={logout}>
+              Log out
+            </button>
           </div>
         </div>
         {view === 'chat' ? (
@@ -65,6 +76,23 @@ function App() {
         )}
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<Login />} />
+      <Route path="/signup" element={<Signup />} />
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <MainApp />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 
@@ -116,7 +144,7 @@ const styles = {
   topBarRight: {
     display: 'flex',
     alignItems: 'center',
-    gap: '6px',
+    gap: '8px',
   },
   statusDot: {
     width: '6px',
@@ -127,6 +155,27 @@ const styles = {
   statusText: {
     fontSize: '11px',
     color: '#3a3a5a',
+  },
+  divider: {
+    width: '1px',
+    height: '14px',
+    background: 'rgba(255,255,255,0.08)',
+    margin: '0 4px',
+  },
+  emailText: {
+    fontSize: '12px',
+    color: '#9494b8',
+  },
+  logoutBtn: {
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '8px',
+    padding: '5px 10px',
+    color: '#a5b4fc',
+    fontSize: '12px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif',
   },
 };
 
