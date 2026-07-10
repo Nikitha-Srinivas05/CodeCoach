@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { getConversations } from '../api';
 
-function Sidebar({ activeConversationId, onSelectConversation, onNewChat }) {
+function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refreshKey }) {
   const [conversations, setConversations] = useState([]);
 
   useEffect(() => {
     fetchConversations();
-  }, []);
+  }, [refreshKey]);
 
   const fetchConversations = async () => {
     try {

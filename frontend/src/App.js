@@ -11,6 +11,7 @@ import { useAuth } from './context/AuthContext';
 function MainApp() {
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [view, setView] = useState('chat');
+  const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const { email, logout } = useAuth();
 
   const handleNewChat = () => {
@@ -25,6 +26,10 @@ function MainApp() {
 
   const handleConversationCreated = (id) => {
     setActiveConversationId(id);
+    // A brand new conversation was just created on the backend — bump this
+    // so Sidebar's effect re-runs and fetches the updated list, instead of
+    // requiring a manual page refresh to see it appear.
+    setSidebarRefreshKey((prev) => prev + 1);
   };
 
   return (
@@ -33,6 +38,7 @@ function MainApp() {
         activeConversationId={activeConversationId}
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}
+        refreshKey={sidebarRefreshKey}
       />
       <div style={styles.main}>
         <div style={styles.topBar}>
