@@ -15,6 +15,23 @@ logger = logging.getLogger("codecoach")
 router = APIRouter()
 
 MAX_CODE_LENGTH = 6000
+MAX_TITLE_LENGTH = 50
+
+
+def generate_title(content: str) -> str:
+    """
+    Build a short, readable conversation title from the first message,
+    instead of leaving every entry as a generic 'New Chat'. Works for both
+    plain text questions and pasted code (falls back to the first
+    non-blank line, e.g. a function signature).
+    """
+    for line in content.strip().splitlines():
+        line = line.strip()
+        if line:
+            if len(line) > MAX_TITLE_LENGTH:
+                return line[:MAX_TITLE_LENGTH].rstrip() + "..."
+            return line
+    return "New Chat"
 
 
 class ChatRequest(BaseModel):
@@ -42,6 +59,8 @@ def chat(
     current_user: User = Depends(get_current_user),
 ):
     # Step 1: Get or create conversation, scoped to the logged-in user
+    is_new_conversation = request.conversation_id is None
+
     if request.conversation_id:
         conversation = (
             db.query(Conversation)
@@ -54,7 +73,12 @@ def chat(
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found.")
     else:
-        conversation = Conversation(title="New Chat", user_id=current_user.id)
+        # Use a placeholder for now — once we have the AI's response below,
+        # we'll rename this to something meaningful if a new conversation
+        # was just started.
+        conversation = Conversation(
+            title=generate_title(request.content), user_id=current_user.id
+        )
         db.add(conversation)
         db.commit()
         db.refresh(conversation)
@@ -86,16 +110,24 @@ def chat(
             db.rollback()
             ast_results = {"error": "Static analysis failed for this submission."}
 
-    # Step 4: Get AI feedback
+    # Step 4: Get AI feedback (and a suggested title, in the same call)
     try:
-        ai_response = get_ai_feedback(request.content, ast_results)
+        ai_title, ai_response = get_ai_feedback(request.content, ast_results)
     except AIServiceError:
         logger.exception("AI feedback failed for message %s", user_message.id)
+        ai_title = ""
         ai_response = (
             "I couldn't generate feedback right now — the AI service may be "
             "temporarily unavailable. Please try sending your code again in "
             "a moment."
         )
+
+    # If this is a new conversation and the AI gave us a usable title,
+    # prefer that over the plain first-line fallback used at creation time
+    # (e.g. "Two Sum with hash map" instead of "for ch in s:").
+    if is_new_conversation and ai_title:
+        conversation.title = ai_title
+        db.commit()
 
     # Step 5: Save assistant's message
     assistant_message = Message(

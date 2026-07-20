@@ -21,7 +21,16 @@ class AIServiceError(Exception):
     """Raised when the AI provider fails to return usable feedback."""
 
 
-def get_ai_feedback(code: str, ast_results: dict) -> str:
+TITLE_DELIMITER = "---FEEDBACK---"
+
+
+def get_ai_feedback(code: str, ast_results: dict) -> tuple[str, str]:
+    """
+    Returns (title, feedback). Asks the model for both in one call so we
+    don't pay for a second round-trip just to name the conversation.
+    If the model doesn't follow the format, falls back to a generic title
+    and treats the whole response as feedback, so nothing breaks either way.
+    """
     prompt = f"""
 You are an expert coding mentor reviewing a student's DSA solution.
 
@@ -31,13 +40,17 @@ Here is their code:
 Static analysis found these issues:
 {ast_results}
 
-Please provide:
+Respond in exactly this format:
+
+TITLE: <a short 4-6 word title summarizing what this code/question is about,
+no punctuation at the end, e.g. "Two Sum with hash map">
+{TITLE_DELIMITER}
 1. Brief explanation of what the code does
 2. Feedback on the issues found
 3. Suggestions to improve time/space complexity if applicable
 4. Encouragement and one key learning tip
 
-Keep your response concise and beginner-friendly.
+Keep the feedback concise and beginner-friendly.
 """
     try:
         response = client.chat.completions.create(
@@ -53,4 +66,21 @@ Keep your response concise and beginner-friendly.
     if not response.choices:
         raise AIServiceError("AI response contained no choices.")
 
-    return response.choices[0].message.content
+    raw = response.choices[0].message.content
+    return _parse_title_and_feedback(raw)
+
+
+def _parse_title_and_feedback(raw: str) -> tuple[str, str]:
+    if TITLE_DELIMITER in raw:
+        title_part, feedback_part = raw.split(TITLE_DELIMITER, 1)
+        title_line = title_part.strip()
+        if title_line.upper().startswith("TITLE:"):
+            title = title_line.split(":", 1)[1].strip().strip('"')
+            feedback = feedback_part.strip()
+            if title and feedback:
+                return title[:60], feedback
+
+    # Model didn't follow the format — don't fail the request over it,
+    # just show the raw response and let the caller fall back on its own
+    # title logic (e.g. first line of the submitted code).
+    return "", raw.strip()
