@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import { login as loginRequest, signup as signupRequest } from '../api';
+import { login as loginRequest, signup as signupRequest, logout as logoutRequest } from '../api';
 
 const AuthContext = createContext(null);
 
@@ -9,8 +9,9 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (emailInput, password) => {
     const response = await loginRequest(emailInput, password);
-    const { access_token, email: userEmail } = response.data;
+    const { access_token, refresh_token, email: userEmail } = response.data;
     localStorage.setItem('codecoach_token', access_token);
+    localStorage.setItem('codecoach_refresh_token', refresh_token);
     localStorage.setItem('codecoach_email', userEmail);
     setToken(access_token);
     setEmail(userEmail);
@@ -18,15 +19,26 @@ export function AuthProvider({ children }) {
 
   const signup = useCallback(async (emailInput, password) => {
     const response = await signupRequest(emailInput, password);
-    const { access_token, email: userEmail } = response.data;
+    const { access_token, refresh_token, email: userEmail } = response.data;
     localStorage.setItem('codecoach_token', access_token);
+    localStorage.setItem('codecoach_refresh_token', refresh_token);
     localStorage.setItem('codecoach_email', userEmail);
     setToken(access_token);
     setEmail(userEmail);
   }, []);
 
   const logout = useCallback(() => {
+    // Best-effort: tell the backend to revoke this refresh token so it
+    // can't be used again, even if this request fails (e.g. offline) we
+    // still clear the local session either way.
+    const refreshToken = localStorage.getItem('codecoach_refresh_token');
+    if (refreshToken) {
+      logoutRequest(refreshToken).catch(() => {
+        // Ignore failures here — we're logging out locally regardless.
+      });
+    }
     localStorage.removeItem('codecoach_token');
+    localStorage.removeItem('codecoach_refresh_token');
     localStorage.removeItem('codecoach_email');
     setToken(null);
     setEmail(null);
