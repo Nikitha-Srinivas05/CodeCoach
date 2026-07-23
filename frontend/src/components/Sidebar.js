@@ -1,21 +1,36 @@
 import React, { useEffect, useState } from 'react';
 import { getConversations } from '../api';
 
+const PAGE_SIZE = 20;
+
 function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refreshKey }) {
   const [conversations, setConversations] = useState([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
-    fetchConversations();
+    fetchConversations(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
-  const fetchConversations = async () => {
+  const fetchConversations = async (offset) => {
     try {
-      const res = await getConversations();
-      setConversations(res.data);
+      const res = await getConversations({ limit: PAGE_SIZE, offset });
+      const { items, total_count } = res.data;
+      setConversations((prev) => (offset === 0 ? items : [...prev, ...items]));
+      setTotalCount(total_count);
     } catch (err) {
       console.error('Failed to fetch conversations', err);
     }
   };
+
+  const handleLoadMore = async () => {
+    setLoadingMore(true);
+    await fetchConversations(conversations.length);
+    setLoadingMore(false);
+  };
+
+  const hasMore = conversations.length < totalCount;
 
   return (
     <div style={styles.sidebar}>
@@ -50,6 +65,15 @@ function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refres
             <span style={styles.convTitle}>{conv.title}</span>
           </div>
         ))}
+        {hasMore && (
+          <button
+            style={styles.loadMoreBtn}
+            onClick={handleLoadMore}
+            disabled={loadingMore}
+          >
+            {loadingMore ? 'Loading...' : 'Load more'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -159,7 +183,18 @@ const styles = {
     color: '#3a3a5a',
     paddingLeft: '10px',
     marginTop: '8px',
-  }
+  },
+  loadMoreBtn: {
+    background: 'transparent',
+    border: 'none',
+    color: '#6b6b8a',
+    fontSize: '12px',
+    fontWeight: '500',
+    cursor: 'pointer',
+    padding: '9px 10px',
+    textAlign: 'left',
+    fontFamily: 'Inter, sans-serif',
+  },
 };
 
 export default Sidebar;

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from services.habit_tracker import calculate_streak
@@ -11,19 +11,34 @@ router = APIRouter()
 
 @router.get("/conversations")
 def get_conversations(
+    limit: int = Query(20, ge=1, le=100, description="Max conversations to return"),
+    offset: int = Query(0, ge=0, description="Number of conversations to skip"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    base_query = db.query(Conversation).filter(Conversation.user_id == current_user.id)
+
+    # total_count lets the sidebar show "showing 20 of 143" and know when
+    # to stop offering a "load more" button, without a second round trip.
+    total_count = base_query.count()
+
     conversations = (
-        db.query(Conversation)
-        .filter(Conversation.user_id == current_user.id)
+        base_query
         .order_by(Conversation.created_at.desc())
+        .offset(offset)
+        .limit(limit)
         .all()
     )
-    return [
-        {"id": c.id, "title": c.title, "created_at": c.created_at}
-        for c in conversations
-    ]
+
+    return {
+        "items": [
+            {"id": c.id, "title": c.title, "created_at": c.created_at}
+            for c in conversations
+        ],
+        "total_count": total_count,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/conversations/{conversation_id}/messages")
@@ -32,9 +47,7 @@ def get_conversation_messages(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    # Confirm the conversation actually belongs to this user before returning
-    # its messages — otherwise user A could read user B's messages just by
-    # guessing a conversation_id.
+    
     conversation = (
         db.query(Conversation)
         .filter(
