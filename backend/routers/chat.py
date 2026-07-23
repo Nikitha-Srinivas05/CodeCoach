@@ -1,11 +1,12 @@
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 
 from database import get_db
+from limiter import limiter
 from models import Conversation, Message, Submission, User
 from dependencies import get_current_user
 from services.ast_analyser import analyse_python
@@ -53,19 +54,21 @@ class ChatRequest(BaseModel):
 
 
 @router.post("/chat")
+@limiter.limit("10/minute")
 def chat(
-    request: ChatRequest,
+    request: Request,
+    chat_request: ChatRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     # Step 1: Get or create conversation, scoped to the logged-in user
-    is_new_conversation = request.conversation_id is None
+    is_new_conversation = chat_request.conversation_id is None
 
-    if request.conversation_id:
+    if chat_request.conversation_id:
         conversation = (
             db.query(Conversation)
             .filter(
-                Conversation.id == request.conversation_id,
+                Conversation.id == chat_request.conversation_id,
                 Conversation.user_id == current_user.id,
             )
             .first()
@@ -77,7 +80,7 @@ def chat(
         # we'll rename this to something meaningful if a new conversation
         # was just started.
         conversation = Conversation(
-            title=generate_title(request.content), user_id=current_user.id
+            title=generate_title(chat_request.content), user_id=current_user.id
         )
         db.add(conversation)
         db.commit()
@@ -87,7 +90,7 @@ def chat(
     user_message = Message(
         conversation_id=conversation.id,
         role="user",
-        content=request.content,
+        content=chat_request.content,
     )
     db.add(user_message)
     db.commit()
@@ -95,12 +98,12 @@ def chat(
 
     # Step 3: If it's code, run AST analysis and save submission.
     ast_results = {}
-    if request.is_code:
+    if chat_request.is_code:
         try:
-            ast_results = analyse_python(request.content)
+            ast_results = analyse_python(chat_request.content)
             submission = Submission(
                 message_id=user_message.id,
-                code=request.content,
+                code=chat_request.content,
                 ast_results=json.dumps(ast_results),
             )
             db.add(submission)
@@ -112,7 +115,7 @@ def chat(
 
     # Step 4: Get AI feedback (and a suggested title, in the same call)
     try:
-        ai_title, ai_response = get_ai_feedback(request.content, ast_results)
+        ai_title, ai_response = get_ai_feedback(chat_request.content, ast_results)
     except AIServiceError:
         logger.exception("AI feedback failed for message %s", user_message.id)
         ai_title = ""

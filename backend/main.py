@@ -3,20 +3,20 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
-from database import engine, Base
-import models
+from limiter import limiter
 from routers import auth, chat, progress
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("codecoach")
 
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(title="CodeCoach API")
 
-# Allow the React dev server (and later, your deployed frontend) to call this API.
-# Add your production frontend URL here once you deploy it.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
