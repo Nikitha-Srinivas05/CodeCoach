@@ -1,6 +1,6 @@
 import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -8,11 +8,12 @@ from models import User
 from services.auth_service import decode_access_token
 
 # tokenUrl is just used for FastAPI's auto-generated docs (Swagger "Authorize" button)
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+bearer_scheme = HTTPBearer()
 
 
 def get_current_user(
-    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+    db: Session = Depends(get_db),
 ) -> User:
     """
     Dependency to protect routes. Add `current_user: User = Depends(get_current_user)`
@@ -24,6 +25,7 @@ def get_current_user(
         headers={"WWW-Authenticate": "Bearer"},
     )
 
+    token = credentials.credentials
     try:
         payload = decode_access_token(token)
         user_id = payload.get("sub")

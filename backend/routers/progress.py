@@ -1,3 +1,7 @@
+import json
+from collections import Counter, defaultdict
+from datetime import datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -111,3 +115,71 @@ def get_stats(
         "total_conversations": total_conversations,
         "total_submissions": total_submissions,
     }
+
+@router.get("/progress/issues-breakdown")
+def get_issues_breakdown(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    submissions = (
+        db.query(Submission)
+        .join(Message, Submission.message_id == Message.id)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .filter(Conversation.user_id == current_user.id)
+        .all()
+    )
+
+    counts = Counter()
+    for s in submissions:
+        if not s.ast_results:
+            continue
+        try:
+            parsed = json.loads(s.ast_results)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        for issue in parsed.get("all_issues", []):
+            issue_type = issue.get("type", "unknown")
+            counts[issue_type] += 1
+
+    return {
+        "breakdown": [
+            {"type": issue_type, "count": count}
+            for issue_type, count in counts.most_common()
+        ],
+        "total_issues": sum(counts.values()),
+    }
+
+
+@router.get("/progress/activity")
+def get_activity(
+    days: int = Query(30, ge=1, le=365, description="Number of days to include"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cutoff = datetime.utcnow() - timedelta(days=days)
+
+    submissions = (
+        db.query(Submission)
+        .join(Message, Submission.message_id == Message.id)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .filter(
+            Conversation.user_id == current_user.id,
+            Submission.created_at >= cutoff,
+        )
+        .all()
+    )
+
+    counts_by_day = defaultdict(int)
+    for s in submissions:
+        day_key = s.created_at.date().isoformat()
+        counts_by_day[day_key] += 1
+
+    today = datetime.utcnow().date()
+    activity = []
+    for i in range(days):
+        day = today - timedelta(days=(days - 1 - i))
+        day_key = day.isoformat()
+        activity.append({"date": day_key, "count": counts_by_day.get(day_key, 0)})
+
+    return {"activity": activity, "days": days}
