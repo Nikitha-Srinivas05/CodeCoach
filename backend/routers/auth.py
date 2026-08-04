@@ -1,10 +1,11 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr, field_validator
 from sqlalchemy.orm import Session
 
 from database import get_db
+from limiter import limiter
 from models import RefreshToken, User
 from services.auth_service import (
     create_access_token,
@@ -66,8 +67,9 @@ def _issue_tokens(db: Session, user: User) -> TokenResponse:
 
 
 @router.post("/signup", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-def signup(request: SignupRequest, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.email == request.email).first()
+@limiter.limit("5/minute")
+def signup(request: Request, request_body: SignupRequest, db: Session = Depends(get_db)):
+    existing_user = db.query(User).filter(User.email == request_body.email).first()
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -75,8 +77,8 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
         )
 
     user = User(
-        email=request.email,
-        hashed_password=hash_password(request.password),
+        email=request_body.email,
+        hashed_password=hash_password(request_body.password),
     )
     db.add(user)
     db.commit()
@@ -86,10 +88,11 @@ def signup(request: SignupRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == request.email).first()
+@limiter.limit("5/minute")
+def login(request: Request, request_body: LoginRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request_body.email).first()
 
-    if not user or not verify_password(request.password, user.hashed_password):
+    if not user or not verify_password(request_body.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password.",
