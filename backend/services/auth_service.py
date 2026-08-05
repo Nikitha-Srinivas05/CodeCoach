@@ -1,4 +1,5 @@
 import hashlib
+import logging
 import os
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -6,8 +7,33 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
 
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-secret-change-in-production")
-JWT_REFRESH_SECRET = os.getenv("JWT_REFRESH_SECRET", "dev-only-refresh-secret-change-in-production")
+logger = logging.getLogger("codecoach")
+
+def _get_secret(env_var: str) -> str:
+    """
+    Load a required secret from the environment. In production this must be
+    set explicitly — refusing to start is safer than silently signing tokens
+    with a default value anyone can find in this file on GitHub. In local
+    dev, fall back to an insecure default but log a loud warning so it's
+    never mistaken for a real config.
+    """
+    value = os.getenv(env_var)
+    if value:
+        return value
+
+    if os.getenv("ENVIRONMENT", "development") == "production":
+        raise RuntimeError(
+            f"{env_var} is not set. Refusing to start in production without it."
+        )
+
+    logger.warning(
+        f"{env_var} not set — using an insecure development default. "
+        "Set it in your .env before deploying."
+    )
+    return f"dev-only-{env_var.lower()}-change-in-production"
+
+JWT_SECRET = _get_secret("JWT_SECRET")
+JWT_REFRESH_SECRET = _get_secret("JWT_REFRESH_SECRET")
 JWT_ALGORITHM = "HS256"
 
 ACCESS_TOKEN_EXPIRY_MINUTES = 30
