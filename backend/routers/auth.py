@@ -101,15 +101,16 @@ def login(request: Request, request_body: LoginRequest, db: Session = Depends(ge
     return _issue_tokens(db, user)
 
 
-@router.post("/refresh", response_model=AccessTokenResponse)
-def refresh(request: RefreshRequest, db: Session = Depends(get_db)):
+@router.post("/refresh", response_model=TokenResponse)
+@limiter.limit("20/minute")
+def refresh(request: Request, request_body: RefreshRequest, db: Session = Depends(get_db)):
     """
     Exchange a valid, unexpired, unrevoked refresh token for a brand new
     access token. The frontend calls this automatically when a request
     comes back 401 due to access token expiry, so the user never has to
     manually log back in every 30 minutes.
     """
-    token_hash = hash_refresh_token(request.refresh_token)
+    token_hash = hash_refresh_token(request_body.refresh_token)
     stored_token = (
         db.query(RefreshToken)
         .filter(RefreshToken.token_hash == token_hash)
@@ -131,8 +132,10 @@ def refresh(request: RefreshRequest, db: Session = Depends(get_db)):
     if user is None:
         raise invalid_exception
 
-    access_token = create_access_token(user.id, user.email)
-    return AccessTokenResponse(access_token=access_token)
+    stored_token.revoked = 1
+    db.commit()
+
+    return _issue_tokens(db, user)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

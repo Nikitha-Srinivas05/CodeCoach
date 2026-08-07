@@ -39,6 +39,7 @@ async function refreshAccessToken() {
       .post(`${API_BASE}/auth/refresh`, { refresh_token: refreshToken })
       .then((res) => {
         localStorage.setItem('codecoach_token', res.data.access_token);
+        localStorage.setItem('codecoach_refresh_token', res.data.refresh_token);
         return res.data.access_token;
       })
       .finally(() => {

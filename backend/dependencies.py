@@ -7,7 +7,6 @@ from database import get_db
 from models import User
 from services.auth_service import decode_access_token
 
-# tokenUrl is just used for FastAPI's auto-generated docs (Swagger "Authorize" button)
 bearer_scheme = HTTPBearer()
 
 
