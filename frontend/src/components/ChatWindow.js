@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import toast from 'react-hot-toast';
 import { sendMessage, getMessages } from '../api';
 
 // Custom renderers so markdown output matches the app's dark/glass theme
@@ -73,6 +74,7 @@ function ChatWindow({ conversationId, onConversationCreated }) {
       setMessages(res.data);
     } catch (err) {
       console.error('Failed to fetch messages', err);
+      toast.error('Could not load this conversation. Try refreshing.');
     }
   }, [conversationId]);
 
@@ -122,6 +124,9 @@ function ChatWindow({ conversationId, onConversationCreated }) {
       setAnalysisSteps([]);
     } catch (err) {
       console.error('Failed to send message', err);
+      toast.error(
+        err.response?.data?.detail || 'Failed to get feedback. Please try again.'
+      );
     }
     setLoading(false);
   };

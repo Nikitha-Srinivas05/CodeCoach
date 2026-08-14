@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { getStreak, getStats } from '../api';
 
 function Dashboard() {
@@ -18,6 +19,7 @@ function Dashboard() {
       setStats(statsRes.data);
     } catch (err) {
       console.error('Failed to fetch dashboard data', err);
+      toast.error('Could not load your progress data.');
     }
     setLoading(false);
   };

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import toast from 'react-hot-toast';
 import { getConversations } from '../api';
 
 const PAGE_SIZE = 20;
@@ -21,6 +22,7 @@ function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refres
       setTotalCount(total_count);
     } catch (err) {
       console.error('Failed to fetch conversations', err);
+      toast.error('Could not load conversation history.');
     }
   };
 
