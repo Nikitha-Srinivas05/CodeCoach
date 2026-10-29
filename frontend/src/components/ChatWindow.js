@@ -194,12 +194,27 @@ function ChatWindow({ conversationId, onConversationCreated }) {
             }}>
               {msg.role === 'user' ? (
                 <pre style={styles.codeContent}>{msg.content}</pre>
-              ) : (
-                <div style={styles.textContent}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                    {msg.content}
-                  </ReactMarkdown>
-                </div>
+                ) : (
+                <>
+                  <div style={styles.textContent}>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                      {msg.content}
+                    </ReactMarkdown>
+                  </div>
+                  <button
+                    style={styles.copyBtn}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(msg.content);
+                        toast.success('Copied to clipboard');
+                      } catch {
+                        toast.error('Could not copy. Please copy manually.');
+                      }
+                    }}
+                  >
+                    Copy
+                  </button>
+                </>
               )}
             </div>
           </div>
@@ -484,6 +499,17 @@ const styles = {
     cursor: 'pointer',
     fontFamily: 'Inter, sans-serif',
     transition: 'opacity 0.2s',
+  },
+  copyBtn: {
+    marginTop: '8px',
+    background: 'rgba(255,255,255,0.06)',
+    border: '1px solid rgba(255,255,255,0.1)',
+    borderRadius: '6px',
+    padding: '4px 10px',
+    fontSize: '11px',
+    color: '#a5b4fc',
+    cursor: 'pointer',
+    fontFamily: 'Inter, sans-serif',
   },
 };
 
