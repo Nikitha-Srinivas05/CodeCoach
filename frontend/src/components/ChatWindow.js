@@ -83,6 +83,7 @@ const markdownStyles = {
   },
 };
 
+const MAX_CODE_LENGTH = 6000; // mirrors MAX_CODE_LENGTH in backend routers/chat.py
 function ChatWindow({ conversationId, onConversationCreated }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -130,6 +131,10 @@ function ChatWindow({ conversationId, onConversationCreated }) {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+    if (input.length > MAX_CODE_LENGTH) {
+      toast.error(`Please keep it under ${MAX_CODE_LENGTH} characters.`);
+      return;
+    }
     setLoading(true);
     if (isCode) simulateAnalysisSteps();
     try {
@@ -266,6 +271,12 @@ function ChatWindow({ conversationId, onConversationCreated }) {
               <span style={styles.toggleLabel}>Code mode</span>
             </label>
             <div style={styles.rightControls}>
+              <span style={{
+                ...styles.hint2,
+                color: input.length > MAX_CODE_LENGTH ? '#f87171' : undefined,
+              }}>
+                {input.length} / {MAX_CODE_LENGTH}
+              </span>
               <span style={styles.hint2}>Ctrl+Enter to send</span>
               <button
                 style={{
