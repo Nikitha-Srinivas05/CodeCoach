@@ -3,6 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import toast from 'react-hot-toast';
 import { sendMessage, getMessages } from '../api';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 // Custom renderers so markdown output matches the app's dark/glass theme
 // instead of falling back to default browser styles.
@@ -13,13 +15,34 @@ const markdownComponents = {
   ul: ({ children }) => <ul style={markdownStyles.list}>{children}</ul>,
   ol: ({ children }) => <ol style={markdownStyles.list}>{children}</ol>,
   li: ({ children }) => <li style={markdownStyles.listItem}>{children}</li>,
-  code: ({ inline, children }) =>
-    inline ? (
-      <code style={markdownStyles.inlineCode}>{children}</code>
-    ) : (
-      <code style={markdownStyles.blockCode}>{children}</code>
-    ),
-  pre: ({ children }) => <pre style={markdownStyles.pre}>{children}</pre>,
+  code: ({ className, children }) => {
+    const text = String(children);
+    const match = /language-(\w+)/.exec(className || '');
+    const isBlock = match || text.includes('\n');
+
+    if (!isBlock) {
+      return <code style={markdownStyles.inlineCode}>{children}</code>;
+    }
+
+    return (
+      <SyntaxHighlighter
+        language={match ? match[1] : 'python'}
+        style={oneDark}
+        customStyle={{
+          background: 'rgba(0,0,0,0.25)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '8px',
+          padding: '12px',
+          fontSize: '13px',
+          margin: '8px 0',
+        }}
+        codeTagProps={{ style: { fontFamily: 'JetBrains Mono, monospace' } }}
+      >
+        {text.replace(/\n$/, '')}
+      </SyntaxHighlighter>
+    );
+  },
+  pre: ({ children }) => <>{children}</>,
   h1: ({ children }) => <h3 style={markdownStyles.heading}>{children}</h3>,
   h2: ({ children }) => <h3 style={markdownStyles.heading}>{children}</h3>,
   h3: ({ children }) => <h3 style={markdownStyles.heading}>{children}</h3>,
