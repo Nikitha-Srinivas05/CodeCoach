@@ -89,7 +89,6 @@ function ChatWindow({ conversationId, onConversationCreated }) {
   const [input, setInput] = useState('');
   const [isCode, setIsCode] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [analysisSteps, setAnalysisSteps] = useState([]);
   const bottomRef = useRef(null);
 
   const fetchMessages = useCallback(async () => {
@@ -112,22 +111,8 @@ function ChatWindow({ conversationId, onConversationCreated }) {
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, analysisSteps]);
+  }, [messages, loading]);
 
-  const simulateAnalysisSteps = () => {
-    const steps = [
-      'Parsing syntax...',
-      'Checking complexity...',
-      'Detecting recursion...',
-      'Generating feedback...',
-    ];
-    setAnalysisSteps([]);
-    steps.forEach((step, i) => {
-      setTimeout(() => {
-        setAnalysisSteps((prev) => [...prev, step]);
-      }, i * 600);
-    });
-  };
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -136,7 +121,6 @@ function ChatWindow({ conversationId, onConversationCreated }) {
       return;
     }
     setLoading(true);
-    if (isCode) simulateAnalysisSteps();
     try {
       const res = await sendMessage(conversationId, input, isCode);
       const data = res.data;
@@ -149,7 +133,6 @@ function ChatWindow({ conversationId, onConversationCreated }) {
         { role: 'assistant', content: data.response }
       ]);
       setInput('');
-      setAnalysisSteps([]);
     } catch (err) {
       console.error('Failed to send message', err);
       toast.error(
@@ -225,20 +208,14 @@ function ChatWindow({ conversationId, onConversationCreated }) {
           </div>
         ))}
 
-        {loading && (
+          {loading && (
           <div style={styles.messageWrapper}>
             <div style={styles.avatar}>AI</div>
             <div style={{ ...styles.message, ...styles.assistantMessage }}>
-              {analysisSteps.map((step, i) => (
-                <div key={i} style={styles.analysisStep}>
-                  <span style={styles.checkmark}>✓</span> {step}
-                </div>
-              ))}
-              {analysisSteps.length < 4 && (
-                <div style={styles.typingDots}>
-                  <span>●</span><span>●</span><span>●</span>
-                </div>
-              )}
+              <div style={styles.analysisStep}>Analysing your code...</div>
+              <div style={styles.typingDots}>
+                <span>●</span><span>●</span><span>●</span>
+              </div>
             </div>
           </div>
         )}
