@@ -54,9 +54,9 @@ Keep the feedback concise and beginner-friendly.
 """
     try:
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="openai/gpt-oss-120b",
             messages=[{"role": "user", "content": prompt}],
-            timeout=20,
+            timeout=30,
         )
     except GroqError as e:
         raise AIServiceError(f"Groq API error: {e}") from e
