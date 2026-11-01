@@ -13,13 +13,16 @@ function MainApp() {
   const [view, setView] = useState('chat');
   const [sidebarRefreshKey, setSidebarRefreshKey] = useState(0);
   const { email, logout } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleNewChat = () => {
+    setSidebarOpen(false);
     setActiveConversationId(null);
     setView('chat');
   };
 
   const handleSelectConversation = (id) => {
+    setSidebarOpen(false);
     setActiveConversationId(id);
     setView('chat');
   };
@@ -39,34 +42,49 @@ function MainApp() {
         onSelectConversation={handleSelectConversation}
         onNewChat={handleNewChat}
         refreshKey={sidebarRefreshKey}
+        isOpen={sidebarOpen}
+      />
+      <div
+        className={`sidebar-backdrop${sidebarOpen ? ' open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
       />
       <div style={styles.main}>
         <div style={styles.topBar}>
-          <div style={styles.tabGroup}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button
-              style={{
-                ...styles.tabBtn,
-                ...(view === 'chat' ? styles.activeTab : {}),
-              }}
-              onClick={() => setView('chat')}
+              className="menu-btn"
+              style={styles.menuBtn}
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open conversations"
             >
-              Chat
+              ☰
             </button>
-            <button
-              style={{
-                ...styles.tabBtn,
-                ...(view === 'dashboard' ? styles.activeTab : {}),
-              }}
-              onClick={() => setView('dashboard')}
-            >
-              Dashboard
-            </button>
+            <div style={styles.tabGroup}>
+              <button
+                style={{
+                  ...styles.tabBtn,
+                  ...(view === 'chat' ? styles.activeTab : {}),
+                }}
+                onClick={() => setView('chat')}
+              >
+                Chat
+              </button>
+              <button
+                style={{
+                  ...styles.tabBtn,
+                  ...(view === 'dashboard' ? styles.activeTab : {}),
+                }}
+                onClick={() => setView('dashboard')}
+              >
+                Dashboard
+              </button>
+            </div>
           </div>
           <div style={styles.topBarRight}>
-            <div style={styles.statusDot} />
-            <span style={styles.statusText}>API Connected</span>
-            <span style={styles.divider} />
-            <span style={styles.emailText}>{email}</span>
+            <div className="hide-mobile" style={styles.statusDot} />
+            <span className="hide-mobile" style={styles.statusText}>API Connected</span>
+            <span className="hide-mobile" style={styles.divider} />
+            <span className="hide-mobile" style={styles.emailText}>{email}</span>
             <button style={styles.logoutBtn} onClick={logout}>
               Log out
             </button>
@@ -182,6 +200,16 @@ const styles = {
     fontWeight: '500',
     cursor: 'pointer',
     fontFamily: 'Inter, sans-serif',
+  },
+  menuBtn: {
+    background: 'rgba(255,255,255,0.04)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '8px',
+    padding: '5px 10px',
+    color: '#a5b4fc',
+    fontSize: '16px',
+    cursor: 'pointer',
+    alignItems: 'center',
   },
 };
 

@@ -176,10 +176,13 @@ function ChatWindow({ conversationId, onConversationCreated }) {
             {msg.role === 'assistant' && (
               <div style={styles.avatar}>AI</div>
             )}
-            <div style={{
-              ...styles.message,
-              ...(msg.role === 'user' ? styles.userMessage : styles.assistantMessage)
-            }}>
+            <div
+              className="chat-message"
+              style={{
+                ...styles.message,
+                ...(msg.role === 'user' ? styles.userMessage : styles.assistantMessage)
+              }}
+            >
               {msg.role === 'user' ? (
                 <pre style={styles.codeContent}>{msg.content}</pre>
                 ) : (
@@ -211,7 +214,7 @@ function ChatWindow({ conversationId, onConversationCreated }) {
           {loading && (
           <div style={styles.messageWrapper}>
             <div style={styles.avatar}>AI</div>
-            <div style={{ ...styles.message, ...styles.assistantMessage }}>
+            <div className="chat-message" style={{ ...styles.message, ...styles.assistantMessage }}>
               <div style={styles.analysisStep}>Analysing your code...</div>
               <div style={styles.typingDots}>
                 <span>●</span><span>●</span><span>●</span>

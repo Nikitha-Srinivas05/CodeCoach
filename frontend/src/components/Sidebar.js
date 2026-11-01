@@ -4,7 +4,7 @@ import { getConversations } from '../api';
 
 const PAGE_SIZE = 20;
 
-function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refreshKey }) {
+function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refreshKey, isOpen }) {
   const [conversations, setConversations] = useState([]);
   const [totalCount, setTotalCount] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -35,7 +35,7 @@ function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refres
   const hasMore = conversations.length < totalCount;
 
   return (
-    <div style={styles.sidebar}>
+      <div className={`sidebar${isOpen ? ' open' : ''}`} style={styles.sidebar}>
       <div style={styles.header}>
         <div style={styles.logo}>
           <span style={styles.logoText}>CodeCoach</span>

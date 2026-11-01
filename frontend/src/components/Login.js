@@ -88,9 +88,11 @@ const styles = {
     justifyContent: 'center',
     background: '#0f0f1a',
     fontFamily: 'Inter, sans-serif',
+    padding: '16px',
   },
   card: {
-    width: '360px',
+    width: '100%',
+    maxWidth: '360px',
     padding: '32px',
     borderRadius: '16px',
     background: 'rgba(255,255,255,0.03)',
