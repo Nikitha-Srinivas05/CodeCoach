@@ -109,4 +109,11 @@ export const getStreak = () => api.get('/progress/streak');
 
 export const getStats = () => api.get('/progress/stats');
 
+export const getTopicsBreakdown = () => api.get('/progress/topics-breakdown');
+
+export const getIssuesBreakdown = () => api.get('/progress/issues-breakdown');
+
+export const getTrends = (weeks = 8) =>
+  api.get('/progress/trends', { params: { weeks } });
+
 export default api;
