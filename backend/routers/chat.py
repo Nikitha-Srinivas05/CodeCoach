@@ -97,6 +97,7 @@ def chat(
     db.refresh(user_message)
 
     # Step 3: If it's code, run AST analysis and save submission.
+    submission = None
     ast_results = {}
     if chat_request.is_code:
         try:
@@ -114,23 +115,22 @@ def chat(
             ast_results = {"error": "Static analysis failed for this submission."}
 
     # Step 4: Get AI feedback (and a suggested title, in the same call)
-    try:
-        ai_title, ai_response = get_ai_feedback(chat_request.content, ast_results)
-    except AIServiceError:
-        logger.exception("AI feedback failed for message %s", user_message.id)
-        ai_title = ""
-        ai_response = (
-            "I couldn't generate feedback right now — the AI service may be "
-            "temporarily unavailable. Please try sending your code again in "
-            "a moment."
-        )
+        try:
+            ai_title, ai_topic, ai_response = get_ai_feedback(chat_request.content, ast_results)
+        except AIServiceError:
+            logger.exception("AI feedback failed for message %s", user_message.id)
+            ai_title = ""
+            ai_topic = ""
+            ai_response = (
+                "I couldn't generate feedback right now — the AI service may be "
+                "temporarily unavailable. Please try sending your code again in "
+                "a moment."
+            )
 
-    # If this is a new conversation and the AI gave us a usable title,
-    # prefer that over the plain first-line fallback used at creation time
-    # (e.g. "Two Sum with hash map" instead of "for ch in s:").
-    if is_new_conversation and ai_title:
-        conversation.title = ai_title
-        db.commit()
+        # Save the topic on the submission so the dashboard can show patterns.
+        if submission is not None and ai_topic:
+            submission.topic = ai_topic
+            db.commit()
 
     # Step 5: Save assistant's message
     assistant_message = Message(

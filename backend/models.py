@@ -64,6 +64,7 @@ class Submission(Base):
     message_id = Column(Integer, ForeignKey("messages.id"))
     code = Column(Text)
     ast_results = Column(Text)  # stored as JSON string
+    topic = Column(String, nullable=True)  # DSA topic tagged by the AI, e.g. "Recursion"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     message = relationship("Message", back_populates="submission")
