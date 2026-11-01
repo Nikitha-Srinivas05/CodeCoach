@@ -47,8 +47,10 @@ function Signup() {
         <p style={styles.tagline}>Create an account to start tracking your progress</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>Email</label>
+          <label htmlFor="email" style={styles.label}>Email</label>
           <input
+            id="email"
+            name="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -57,8 +59,10 @@ function Signup() {
             autoComplete="email"
           />
 
-          <label style={styles.label}>Password</label>
+          <label htmlFor="password" style={styles.label}>Password</label>
           <input
+            id="password"
+            name="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -67,8 +71,10 @@ function Signup() {
             autoComplete="new-password"
           />
 
-          <label style={styles.label}>Confirm Password</label>
+          <label htmlFor="confirmPassword" style={styles.label}>Confirm Password</label>
           <input
+            id="confirmPassword"
+            name="confirmPassword"
             type="password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
@@ -77,7 +83,7 @@ function Signup() {
             autoComplete="new-password"
           />
 
-          {error && <div style={styles.error}>{error}</div>}
+          {error && <div role="alert" style={styles.error}>{error}</div>}
 
           <button type="submit" style={styles.submitBtn} disabled={loading}>
             {loading ? 'Creating account…' : 'Sign Up'}

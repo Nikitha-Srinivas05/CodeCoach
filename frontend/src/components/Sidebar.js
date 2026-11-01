@@ -62,6 +62,15 @@ function Sidebar({ activeConversationId, onSelectConversation, onNewChat, refres
               ...(conv.id === activeConversationId ? styles.activeItem : {})
             }}
             onClick={() => onSelectConversation(conv.id)}
+            role="button"
+            tabIndex={0}
+            aria-current={conv.id === activeConversationId ? 'true' : undefined}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectConversation(conv.id);
+              }
+            }}
           >
             <span style={styles.convIcon}>💬</span>
             <span style={styles.convTitle}>{conv.title}</span>

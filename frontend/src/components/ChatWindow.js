@@ -225,20 +225,33 @@ function ChatWindow({ conversationId, onConversationCreated }) {
       <div style={styles.inputArea}>
         <div style={styles.inputContainer}>
           <textarea
+            id="chat-input"
+            name="chat-input"
             style={styles.textarea}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Paste your code here..."
+            aria-label="Paste your code or question"
             rows={4}
           />
           <div style={styles.inputFooter}>
-            <label style={styles.toggle}>
+            <div style={styles.toggle}>
               <div style={{
                 ...styles.toggleSwitch,
                 background: isCode ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : '#2a2a3a'
               }}
                 onClick={() => setIsCode(!isCode)}
+                role="switch"
+                aria-checked={isCode}
+                aria-label="Code mode"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setIsCode(!isCode);
+                  }
+                }}
               >
                 <div style={{
                   ...styles.toggleKnob,
@@ -246,7 +259,7 @@ function ChatWindow({ conversationId, onConversationCreated }) {
                 }} />
               </div>
               <span style={styles.toggleLabel}>Code mode</span>
-            </label>
+            </div>
             <div style={styles.rightControls}>
               <span style={{
                 ...styles.hint2,

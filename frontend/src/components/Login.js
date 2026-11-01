@@ -38,8 +38,10 @@ function Login() {
         <p style={styles.tagline}>Welcome back — log in to continue</p>
 
         <form onSubmit={handleSubmit} style={styles.form}>
-          <label style={styles.label}>Email</label>
+          <label htmlFor="email" style={styles.label}>Email</label>
           <input
+            id="email"
+            name="email"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -48,8 +50,10 @@ function Login() {
             autoComplete="email"
           />
 
-          <label style={styles.label}>Password</label>
+          <label htmlFor="password" style={styles.label}>Password</label>
           <input
+            id="password"
+            name="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -58,7 +62,7 @@ function Login() {
             autoComplete="current-password"
           />
 
-          {error && <div style={styles.error}>{error}</div>}
+          {error && <div role="alert" style={styles.error}>{error}</div>}
 
           <button type="submit" style={styles.submitBtn} disabled={loading}>
             {loading ? 'Logging in…' : 'Log In'}
