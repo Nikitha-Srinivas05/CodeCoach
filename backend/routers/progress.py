@@ -183,3 +183,105 @@ def get_activity(
         activity.append({"date": day_key, "count": counts_by_day.get(day_key, 0)})
 
     return {"activity": activity, "days": days}
+
+def _load_user_submissions(db: Session, user: User) -> list:
+    return (
+        db.query(Submission)
+        .join(Message, Submission.message_id == Message.id)
+        .join(Conversation, Message.conversation_id == Conversation.id)
+        .filter(Conversation.user_id == user.id)
+        .all()
+    )
+
+
+def _parse_issues(submission: Submission) -> list:
+    """Return the list of AST issues for a submission, or [] if missing/corrupt."""
+    if not submission.ast_results:
+        return []
+    try:
+        parsed = json.loads(submission.ast_results)
+    except (json.JSONDecodeError, TypeError):
+        return []
+    return parsed.get("all_issues", [])
+
+
+@router.get("/progress/topics-breakdown")
+def get_topics_breakdown(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Per DSA topic: how many submissions, how many static-analysis issues,
+    and the average issues per submission. The topic with the highest
+    average is the user's weakest area.
+    """
+    submissions = _load_user_submissions(db, current_user)
+
+    stats = defaultdict(lambda: {"submissions": 0, "issues": 0})
+    untagged = 0
+
+    for s in submissions:
+        if not s.topic:
+            untagged += 1
+            continue
+        stats[s.topic]["submissions"] += 1
+        stats[s.topic]["issues"] += len(_parse_issues(s))
+
+    breakdown = [
+        {
+            "topic": topic,
+            "submissions": data["submissions"],
+            "issues": data["issues"],
+            "avg_issues": round(data["issues"] / data["submissions"], 2),
+        }
+        for topic, data in stats.items()
+    ]
+    breakdown.sort(key=lambda row: row["submissions"], reverse=True)
+
+    return {"breakdown": breakdown, "untagged": untagged}
+
+
+@router.get("/progress/trends")
+def get_trends(
+    weeks: int = Query(8, ge=1, le=52, description="Number of weeks to include"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Weekly submissions and issues, oldest week first, so the frontend can
+    show whether mistakes are going up or down over time. Weeks start on
+    Monday. Weeks with no activity are included with zeros.
+    """
+    today = datetime.utcnow().date()
+    this_monday = today - timedelta(days=today.weekday())
+    first_monday = this_monday - timedelta(weeks=weeks - 1)
+
+    weekly = {}
+    for i in range(weeks):
+        week_start = first_monday + timedelta(weeks=i)
+        weekly[week_start] = {"submissions": 0, "issues": 0, "by_type": Counter()}
+
+    for s in _load_user_submissions(db, current_user):
+        day = s.created_at.date()
+        if day < first_monday:
+            continue
+        week_start = day - timedelta(days=day.weekday())
+        if week_start not in weekly:
+            continue
+        issues = _parse_issues(s)
+        weekly[week_start]["submissions"] += 1
+        weekly[week_start]["issues"] += len(issues)
+        for issue in issues:
+            weekly[week_start]["by_type"][issue.get("type", "unknown")] += 1
+
+    return {
+        "weeks": [
+            {
+                "week_start": week_start.isoformat(),
+                "submissions": data["submissions"],
+                "issues": data["issues"],
+                "by_type": dict(data["by_type"]),
+            }
+            for week_start, data in weekly.items()
+        ]
+    }
